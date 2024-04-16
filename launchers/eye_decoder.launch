@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- eye_tracker node -->
+    <node name="eye_decoder" pkg="eye_decoder" type="eye_decoder_node.py" output="screen" >
+    </node>
+
+
+</launch>
