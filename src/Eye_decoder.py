@@ -28,16 +28,16 @@ class Eye_decoder:
         rospy.init_node('eye_decoder', anonymous=True)
         self.pub = rospy.Publisher('cvsa/eye', Eye, queue_size=1)
 
-        self.cam_source = rospy.get_param('cam_source', 0)
+        self.cam_source = rospy.get_param('eye_decoder/cam_source', 0)
         self.cap = cv.VideoCapture(self.cam_source)
 
-        r = rospy.get_param('rate', 256)
+        r = rospy.get_param('eye_decoder/rate', 256)
         self.rate = rospy.Rate(r)
 
-        self.blink_threshold = rospy.get_param('blink_threshold', 0.52)
+        self.blink_threshold = rospy.get_param('eye_decoder/blink_threshold', 0.52)
         self.count_frame_blinking = 0
         
-        self.show_frame = rospy.get_param('show_frame', True)
+        self.show_frame = rospy.get_param('eye_decoder/show_frame', True)
 
 
     def run(self):
