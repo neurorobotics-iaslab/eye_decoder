@@ -41,8 +41,14 @@ class Eye_decoder:
 
 
     def run(self):
-        while not rospy.is_shutdown():
+        while True:
             ret, frame = self.cap.read()
+            
+            if rospy.is_shutdown():
+                self.cap.release()
+                cv.destroyAllWindows()
+                rospy.signal_shutdown("Shutting down ROS node")
+                break
 
             if not ret:
                 rospy.WARN('[ERROR] camera not open correctly')
@@ -52,8 +58,7 @@ class Eye_decoder:
             
             self.rate.sleep()
 
-        self.cap.release()
-        cv.destroyAllWindows()
+        
         
 
     def publish(self, frame_with_points, frame, center_eyes, distances2nose, blinking, nose_points):
