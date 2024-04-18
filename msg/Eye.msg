@@ -5,6 +5,10 @@ std_msgs/Header header
 geometry_msgs/Point right_pupil
 geometry_msgs/Point left_pupil
 
+# radius of pupils
+float32 right_radius
+float32 left_radius
+
 # nose axis
 geometry_msgs/Point[] nose_points
 
@@ -17,5 +21,4 @@ float32 distance_right
 float32 distance_left
 
 # two types of image
-sensor_msgs/Image image_with_points
-sensor_msgs/Image image
+sensor_msgs/Image face_image

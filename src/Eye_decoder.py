@@ -20,6 +20,8 @@ class Eye_decoder:
         self.LEFT_IRIS =  [474, 475, 476, 477]
         self.RIGHT_IRIS = [469, 470, 471, 472]
         
+        self.FACE = [10, 152, 234, 454] # up, down, left, right
+        
         self.NOSE = [1, 168]
         
         self.seq = 0
@@ -60,8 +62,7 @@ class Eye_decoder:
 
         
         
-
-    def publish(self, frame_with_points, frame, center_eyes, distances2nose, blinking, nose_points):
+    def publish(self, frame, center_eyes, l_radius, r_radius, distances2nose, blinking, nose_points):
         msg = Eye()
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = 'eye_decoder'
@@ -74,8 +75,10 @@ class Eye_decoder:
         msg.right_pupil.x = center_eyes[1][0]
         msg.right_pupil.y = center_eyes[1][1]
         
-        msg.image = CvBridge().cv2_to_imgmsg(frame, encoding='bgr8')
-        msg.image_with_points = CvBridge().cv2_to_imgmsg(frame_with_points, encoding='bgr8')
+        msg.right_radius = r_radius
+        msg.left_radius = l_radius
+        
+        msg.face_image = CvBridge().cv2_to_imgmsg(frame, encoding='bgr8')
         
         msg.distance_left = distances2nose[0]
         msg.distance_right = distances2nose[1]
@@ -90,7 +93,6 @@ class Eye_decoder:
         
 
     def detection(self, frame):
-        frame_clone = frame.copy()
         rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         img_h, img_w = frame.shape[:2]
 
@@ -118,22 +120,25 @@ class Eye_decoder:
 
             (l_cx, l_cy), l_radius = cv.minEnclosingCircle(mesh_points[self.LEFT_IRIS])
             (r_cx, r_cy), r_radius = cv.minEnclosingCircle(mesh_points[self.RIGHT_IRIS])
-            center_left = np.array([l_cx, l_cy], dtype=np.int32)
-            center_right = np.array([r_cx, r_cy], dtype=np.int32)
-
-            cv.circle(frame, center_left, int(l_radius), (255, 0, 255), 2, cv.LINE_AA)  # Left iris
-            cv.circle(frame, center_right, int(r_radius), (255, 0, 255), 2, cv.LINE_AA) # Right iris
+            tmp_c_l = np.array([l_cx, l_cy], dtype=np.int32)
+            tmp_c_r = np.array([r_cx, r_cy], dtype=np.int32)
+            
+            face_region = np.array(mesh_points[self.FACE], np.int32)
+            face_frame = frame[np.min(face_region[:, 1]):np.max(face_region[:, 1]), np.min(face_region[:, 0]):np.max(face_region[:, 0])].copy()
+            
+            center_left =np.array([tmp_c_l[0] - np.min(face_region[:, 0]), tmp_c_l[1] - np.min(face_region[:, 1])], dtype=np.int32)
+            center_right = np.array([tmp_c_r[0] - np.min(face_region[:, 0]), tmp_c_r[1] - np.min(face_region[:, 1])], dtype=np.int32)
                 
             distances2nose = distance_nose([center_left, center_right], mesh_points[self.NOSE])
             
-            for point in mesh_points[self.NOSE]:
-                cv.circle(frame, tuple(point), 1, (0, 255, 0), -1)
+            n_p = np.array(mesh_points[self.NOSE], np.int32)
+            nose_points = np.array([[n_p[i][0] - np.min(face_region[:, 0]), n_p[i][1] - np.min(face_region[:, 1])] for i in range(0, len(n_p))], dtype=np.int32)
             
-            
-            self.publish(frame, frame_clone, [center_left, center_right], distances2nose, blinking, mesh_points[self.NOSE])
+            self.publish(frame, [center_left, center_right], l_radius, r_radius, distances2nose, blinking, nose_points)
 
             if self.show_frame:
-                f = frame.copy()
-                cv.putText(f, f"Blinks: {self.count_frame_blinking}", (30, 50), cv.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2, cv.LINE_AA)
+                f = face_frame.copy()
+                cv.circle(f, tuple(center_left), int(l_radius), (0, 255, 0), 2)
+                cv.circle(f, tuple(center_right), int(r_radius), (0, 255, 0), 2)
                 cv.imshow("Eye Detector", f)
                 cv.waitKey(1)
