@@ -45,6 +45,7 @@ class Eye_decoder:
     def run(self):
         while True:
             ret, frame = self.cap.read()
+            frame = cv.flip(frame, 0)
             
             if rospy.is_shutdown():
                 self.cap.release()
@@ -126,7 +127,7 @@ class Eye_decoder:
             face_region = np.array(mesh_points[self.FACE], np.int32)
             face_frame = frame[np.min(face_region[:, 1]):np.max(face_region[:, 1]), np.min(face_region[:, 0]):np.max(face_region[:, 0])].copy()
             
-            center_left =np.array([tmp_c_l[0] - np.min(face_region[:, 0]), tmp_c_l[1] - np.min(face_region[:, 1])], dtype=np.int32)
+            center_left = np.array([tmp_c_l[0] - np.min(face_region[:, 0]), tmp_c_l[1] - np.min(face_region[:, 1])], dtype=np.int32)
             center_right = np.array([tmp_c_r[0] - np.min(face_region[:, 0]), tmp_c_r[1] - np.min(face_region[:, 1])], dtype=np.int32)
                 
             distances2nose = distance_nose([center_left, center_right], mesh_points[self.NOSE])
@@ -138,7 +139,10 @@ class Eye_decoder:
 
             if self.show_frame:
                 f = face_frame.copy()
-                cv.circle(f, tuple(center_left), int(l_radius), (0, 255, 0), 2)
-                cv.circle(f, tuple(center_right), int(r_radius), (0, 255, 0), 2)
+                #cv.circle(f, tuple(center_left), int(l_radius), (0, 255, 0), 2)
+                #cv.circle(f, tuple(center_right), int(r_radius), (0, 255, 0), 2)
+                #print(f'disance left: {distances2nose[0]}, distance right: {distances2nose[1]}')
+                #print(f'blinking: {blinking}, count_frame_blinking: {self.count_frame_blinking}')
+                #print(f'left eye: {center_left}, right eye: {center_right}')
                 cv.imshow("Eye Detector", f)
                 cv.waitKey(1)

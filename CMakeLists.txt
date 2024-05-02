@@ -19,3 +19,12 @@ generate_messages(
     std_msgs
     sensor_msgs
   )
+
+catkin_package(
+  INCLUDE_DIRS 
+  LIBRARIES 
+  CATKIN_DEPENDS
+  std_msgs
+  message_runtime
+  DEPENDS
+)
