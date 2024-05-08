@@ -6,6 +6,7 @@ from eye_decoder.msg import Eye
 from utils import blinking_ratio, distance_nose
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Point
+from std_srvs.srv import Trigger
 
 class Eye_decoder:
     def __init__(self):
@@ -29,6 +30,7 @@ class Eye_decoder:
     def configure(self):
         rospy.init_node('eye_decoder', anonymous=True)
         self.pub = rospy.Publisher('cvsa/eye', Eye, queue_size=1)
+        self.srv = rospy.Service('cvsa/camera_ready', Trigger, self.camera_ready)
 
         self.cam_source = rospy.get_param('eye_decoder/cam_source', 0)
         self.cap = cv.VideoCapture(self.cam_source)
@@ -40,9 +42,12 @@ class Eye_decoder:
         self.count_frame_blinking = 0
         
         self.show_frame = rospy.get_param('eye_decoder/show_frame', True)
+        
+        self.det = False
 
 
     def run(self):
+        
         while True:
             ret, frame = self.cap.read()
             frame = cv.flip(frame, 0)
@@ -57,11 +62,16 @@ class Eye_decoder:
                 rospy.WARN('[ERROR] camera not open correctly')
                 break
 
-            self.detection(frame)
+            self.det = self.detection(frame)
+            
             
             self.rate.sleep()
 
-        
+    def camera_ready(self, req):
+        res = Trigger()
+        res.success = self.det
+        res.message = 'Camera is ready' if self.det else 'Camera is not ready'
+        return res   
         
     def publish(self, frame, center_eyes, l_radius, r_radius, distances2nose, blinking, nose_points):
         msg = Eye()
@@ -135,7 +145,7 @@ class Eye_decoder:
             n_p = np.array(mesh_points[self.NOSE], np.int32)
             nose_points = np.array([[n_p[i][0] - np.min(face_region[:, 0]), n_p[i][1] - np.min(face_region[:, 1])] for i in range(0, len(n_p))], dtype=np.int32)
             
-            self.publish(frame, [center_left, center_right], l_radius, r_radius, distances2nose, blinking, nose_points)
+            self.publish(face_frame, [center_left, center_right], l_radius, r_radius, distances2nose, blinking, nose_points)
 
             if self.show_frame:
                 f = face_frame.copy()
@@ -146,3 +156,6 @@ class Eye_decoder:
                 #print(f'left eye: {center_left}, right eye: {center_right}')
                 cv.imshow("Eye Detector", f)
                 cv.waitKey(1)
+            
+            return True
+        return False
