@@ -6,7 +6,7 @@ from eye_decoder.msg import Eye
 from utils import blinking_ratio, distance_nose
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Point
-from std_srvs.srv import Trigger
+from std_srvs.srv import Trigger, TriggerResponse
 
 class Eye_decoder:
     def __init__(self):
@@ -27,6 +27,8 @@ class Eye_decoder:
         
         self.seq = 0
         
+        self.det = False
+        
     def configure(self):
         rospy.init_node('eye_decoder', anonymous=True)
         self.pub = rospy.Publisher('cvsa/eye', Eye, queue_size=1)
@@ -43,7 +45,7 @@ class Eye_decoder:
         
         self.show_frame = rospy.get_param('eye_decoder/show_frame', True)
         
-        self.det = False
+        
 
 
     def run(self):
@@ -68,7 +70,7 @@ class Eye_decoder:
             self.rate.sleep()
 
     def camera_ready(self, req):
-        res = Trigger()
+        res = TriggerResponse()
         res.success = self.det
         res.message = 'Camera is ready' if self.det else 'Camera is not ready'
         return res   
