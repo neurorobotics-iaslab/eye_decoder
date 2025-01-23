@@ -7,6 +7,7 @@ from utils import blinking_ratio, distance_nose
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Point
 from std_srvs.srv import Trigger, TriggerResponse
+from sensor_msgs.msg import Image
 
 class Eye_decoder:
     def __init__(self):
@@ -26,17 +27,26 @@ class Eye_decoder:
         self.NOSE = [1, 168]
         
         self.seq = 0
-        
         self.det = False
         
     def configure(self):
         rospy.init_node('eye_decoder', anonymous=True)
         self.pub = rospy.Publisher('cvsa/eye', Eye, queue_size=1)
-        self.srv = rospy.Service('cvsa/camera_ready', Trigger, self.camera_ready)
+        self.srv = rospy.Service('cvsa/face_detection_ready', Trigger, self.face_detection_ready)
 
-        self.cam_source = rospy.get_param('eye_decoder/cam_source', 0)
-        self.cap = cv.VideoCapture(self.cam_source)
-
+        # check wihch camera do you have
+        self.realsense = rospy.get_param('eye_decoder/realsense_camera', False)
+        
+        if not self.realsense:
+            self.cam_source = rospy.get_param('eye_decoder/cam_source', 0)
+            self.cap = cv.VideoCapture(self.cam_source)
+            if not self.cap.isOpened():
+                self.cap.release()
+                rospy.ERROR("[eye_dectoder] Error: camera not open correctly")
+        else:
+            self.sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
+            self.ret = False
+        
         r = rospy.get_param('eye_decoder/rate', 256)
         self.rate = rospy.Rate(r)
 
@@ -46,33 +56,45 @@ class Eye_decoder:
         self.show_frame = rospy.get_param('eye_decoder/show_frame', True)
         
         
-
+    def image_callback(self, data):
+        self.ret = True
+        cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        frame = cv.flip(cv_image, 0)
+        self.det = self.detection(frame)
+        
 
     def run(self):
         
         while True:
-            ret, frame = self.cap.read()
-            frame = cv.flip(frame, 0)
+            
+            if not self.realsense:
+                ret, frame = self.cap.read()
+                if not ret:
+                    rospy.logwarn('[eye_decoder] WARN: no frame from camera')
+                    self.rate.sleep()
+                    continue
+                frame = cv.flip(frame, 0)
+                self.det = self.detection(frame)
+            elif self.realsense and not self.ret:
+                rospy.logwarn('[eye_decoder] WARN: no frame from camera')
+                
+            if not self.det:
+                rospy.logwarn('[eye_decoder] WARN: eye detection fails')
             
             if rospy.is_shutdown():
-                self.cap.release()
+                
+                if not self.realsense:
+                    self.cap.release()
                 cv.destroyAllWindows()
-                rospy.signal_shutdown("Shutting down ROS node")
+                rospy.signal_shutdown("[eye_decoder] Shutting down ROS node")
                 break
 
-            if not ret:
-                rospy.WARN('[ERROR] camera not open correctly')
-                break
-
-            self.det = self.detection(frame)
-            
-            
             self.rate.sleep()
 
-    def camera_ready(self, req):
+    def face_detection_ready(self, req):
         res = TriggerResponse()
         res.success = self.det
-        res.message = 'Camera is ready' if self.det else 'Camera is not ready'
+        res.message = 'Face detection is ready' if self.det else 'Face detection is not ready'
         return res   
         
     def publish(self, frame, center_eyes, l_radius, r_radius, distances2nose, blinking, nose_points):

@@ -1,0 +1,1 @@
+This package provide an eye detector which works online. In addition it works with webcam or realsense data.
