@@ -45,9 +45,8 @@ class Eye_decoder:
                 rospy.ERROR("[eye_dectoder] Error: camera not open correctly")
         else:
             self.sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
-            self.ret = False
         
-        r = rospy.get_param('eye_decoder/rate', 256)
+        r = rospy.get_param('eye_decoder/rate', 30)
         self.rate = rospy.Rate(r)
 
         self.blink_threshold = rospy.get_param('eye_decoder/blink_threshold', 0.52)
@@ -56,33 +55,27 @@ class Eye_decoder:
         self.show_frame = rospy.get_param('eye_decoder/show_frame', True)
         
         
-    def image_callback(self, data):
-        self.ret = True
-        cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-        frame = cv.flip(cv_image, 0)
+    def image_callback(self, msg):
+        frame = CvBridge().imgmsg_to_cv2(msg, desired_encoding="bgr8")
         self.det = self.detection(frame)
+        if not self.det:
+            rospy.logerr('[eye_decoder] ERROR: eye detection fails')
         
 
     def run(self):
         
         while True:
-            
             if not self.realsense:
                 ret, frame = self.cap.read()
                 if not ret:
                     rospy.logwarn('[eye_decoder] WARN: no frame from camera')
                     self.rate.sleep()
                     continue
-                frame = cv.flip(frame, 0)
                 self.det = self.detection(frame)
-            elif self.realsense and not self.ret:
-                rospy.logwarn('[eye_decoder] WARN: no frame from camera')
-                
-            if not self.det:
-                rospy.logwarn('[eye_decoder] WARN: eye detection fails')
-            
+                if not self.det:
+                    rospy.logerr('[eye_decoder] ERROR: eye detection fails')
+
             if rospy.is_shutdown():
-                
                 if not self.realsense:
                     self.cap.release()
                 cv.destroyAllWindows()
